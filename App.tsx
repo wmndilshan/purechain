@@ -12,6 +12,8 @@ import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import ExperiencePage from './pages/ExperiencePage';
 import Contact from './pages/Contact';
+import TestAPI from './pages/TestAPI';
+import OrderTracking from './pages/OrderTracking';
 
 // ScrollToTop component to reset scroll position on route change
 const ScrollToTop = () => {
@@ -39,6 +41,8 @@ const App: React.FC = () => {
               <Route path="/cart" element={<Cart />} />
               <Route path="/experience" element={<ExperiencePage />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/my-orders" element={<OrderTracking />} />
+              <Route path="/test-api" element={<TestAPI />} />
             </Routes>
           </main>
           <Footer />

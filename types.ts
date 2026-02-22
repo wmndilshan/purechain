@@ -9,12 +9,18 @@ export interface HarvestInfo {
   pickingDate: string;
   batchNumber: string;
   storageMethod: string;
+  fertilizersUsed?: string;
+  pesticidePractice?: string;
+  chemicalSafety?: string;
 }
 
 export interface ProductSpecifics {
   variety: string;
   sizeWeight: string;
   shelfLife: string;
+  nutritionHighlights?: string;
+  bestUse?: string;
+  packaging?: string;
 }
 
 export interface Product {
@@ -32,6 +38,17 @@ export interface Product {
 
 export interface CartItem extends Product {
   quantity: number;
+}
+
+/** Stored in localStorage after a successful checkout */
+export interface PlacedOrder {
+  orderId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  price: number;
+  dateTime: string;
+  status?: string;
 }
 
 export interface KitchenItem {
