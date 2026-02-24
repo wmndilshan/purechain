@@ -17,6 +17,10 @@ export function adaptSensorReading(raw: APISensorReading): SensorReading {
         rateK: Number(raw['Changing rate K']) || 0,
         rateSoilMoisture: Number(raw['Changing rate Soil Moisture']) || 0,
         rateGas: Number(raw['Changing rate Gas']) || 0,
+        baselineN: Number(raw['Baseline N']) || 0,
+        baselineP: Number(raw['Baseline P']) || 0,
+        baselineK: Number(raw['Baseline K']) || 0,
+        baselineGas: Number(raw['Baseline Gas']) || 0,
     };
 }
 
@@ -57,6 +61,10 @@ const NOISE_PCT: Record<keyof Omit<SensorReading, 'dateTime'>, number> = {
     rateK: 0.40,
     rateSoilMoisture: 0.40,
     rateGas: 0.40,
+    baselineN: 0,
+    baselineP: 0,
+    baselineK: 0,
+    baselineGas: 0,
 };
 
 /**

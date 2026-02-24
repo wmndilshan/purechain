@@ -12,6 +12,10 @@ export interface SensorReading {
     rateK?: number;
     rateSoilMoisture?: number;
     rateGas?: number;
+    baselineN?: number;
+    baselineP?: number;
+    baselineK?: number;
+    baselineGas?: number;
 }
 
 interface Props {
@@ -19,20 +23,23 @@ interface Props {
     isRealData: boolean; // true for CA (Carrot), false for others
 }
 
-type Metric = 'N' | 'P' | 'K' | 'soilMoisture' | 'gas';
+type Metric = 'N' | 'P' | 'K' | 'gas';
 
-const METRICS: { key: Metric; label: string; unit: string; color: string; idealMin: number; idealMax: number }[] = [
-    { key: 'N', label: 'Nitrogen (N)', unit: 'mg/kg', color: '#22c55e', idealMin: 150, idealMax: 220 },
-    { key: 'P', label: 'Phosphorus (P)', unit: 'mg/kg', color: '#3b82f6', idealMin: 45, idealMax: 75 },
-    { key: 'K', label: 'Potassium (K)', unit: 'mg/kg', color: '#a855f7', idealMin: 120, idealMax: 180 },
-    { key: 'soilMoisture', label: 'Soil Moisture', unit: '%', color: '#06b6d4', idealMin: 30, idealMax: 60 },
-    { key: 'gas', label: 'Gas (CO₂)', unit: 'ppm', color: '#f97316', idealMin: 400, idealMax: 550 },
+const METRICS: { key: Metric; label: string; unit: string; color: string; idealMin: number; idealMax: number; dataKey: keyof SensorReading; baselineKey?: keyof SensorReading }[] = [
+    { key: 'N', label: 'N', unit: 'mg/kg', color: '#22c55e', idealMin: 150, idealMax: 220, dataKey: 'rateN', baselineKey: 'baselineN' },
+    { key: 'P', label: 'P', unit: 'mg/kg', color: '#3b82f6', idealMin: 45, idealMax: 75, dataKey: 'rateP', baselineKey: 'baselineP' },
+    { key: 'K', label: 'K', unit: 'mg/kg', color: '#a855f7', idealMin: 120, idealMax: 180, dataKey: 'rateK', baselineKey: 'baselineK' },
+    { key: 'gas', label: 'Pesticide Usage', unit: 'ppm', color: '#f97316', idealMin: 400, idealMax: 550, dataKey: 'gas', baselineKey: 'baselineGas' },
 ];
 
-function MiniSVGChart({ readings, metric, color }: { readings: SensorReading[]; metric: Metric; color: string }) {
-    const values = readings.map(r => r[metric] as number);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
+function MiniSVGChart({ readings, config }: { readings: SensorReading[]; config: typeof METRICS[0] }) {
+    const { dataKey, color, baselineKey } = config;
+    const values = readings.map(r => r[dataKey] as number);
+    const baselineReading = baselineKey ? readings.find(r => Number(r[baselineKey]) > 0) : undefined;
+    const baselineValue = baselineReading && baselineKey ? baselineReading[baselineKey] as number : undefined;
+
+    const min = Math.min(...values, baselineValue ?? Infinity);
+    const max = Math.max(...values, baselineValue ?? -Infinity);
     const range = max - min || 1;
     const W = 280, H = 70, pad = 6;
 
@@ -53,15 +60,23 @@ function MiniSVGChart({ readings, metric, color }: { readings: SensorReading[]; 
         <div className="relative">
             <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
                 <defs>
-                    <linearGradient id={`grad-${metric}`} x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id={`grad-${config.key}`} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={color} stopOpacity="0.3" />
                         <stop offset="100%" stopColor={color} stopOpacity="0.02" />
                     </linearGradient>
                 </defs>
+                {/* baseline */}
+                {baselineValue !== undefined && (
+                    <line
+                        x1={pad} y1={pad + (1 - (baselineValue - min) / range) * (H - pad * 2)}
+                        x2={W - pad} y2={pad + (1 - (baselineValue - min) / range) * (H - pad * 2)}
+                        stroke="#000000" strokeWidth="1.5" strokeDasharray="4,2"
+                    />
+                )}
                 {/* fill area */}
                 <polygon
                     points={`${pad},${H - pad} ${points} ${W - pad},${H - pad}`}
-                    fill={`url(#grad-${metric})`}
+                    fill={`url(#grad-${config.key})`}
                 />
                 {/* line */}
                 <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -92,9 +107,13 @@ export const SensorDataSection: React.FC<Props> = ({ readings, isRealData }) => 
 
     const latest = readings[readings.length - 1];
     const activeConf = METRICS.find(m => m.key === activeMetric)!;
-    const activeValues = readings.map(r => r[activeMetric] as number);
-    const activeMin = Math.min(...activeValues);
-    const activeMax = Math.max(...activeValues);
+    const activeValues = readings.map(r => r[activeConf.dataKey] as number);
+
+    const baselineReading = activeConf.baselineKey ? readings.find(r => Number(r[activeConf.baselineKey]) > 0) : undefined;
+    const baselineValue = baselineReading && activeConf.baselineKey ? baselineReading[activeConf.baselineKey] as number : undefined;
+
+    const activeMin = Math.min(...activeValues, baselineValue ?? Infinity);
+    const activeMax = Math.max(...activeValues, baselineValue ?? -Infinity);
 
     // Full chart
     const W = 600, H = 160, padX = 40, padY = 16;
@@ -120,11 +139,6 @@ export const SensorDataSection: React.FC<Props> = ({ readings, isRealData }) => 
                     <h3 className="text-2xl font-bold text-gray-800">
                         🌱 Live Soil & Air Sensor Data
                     </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                        {isRealData
-                            ? 'Real-time IoT data from this farm plot · Updated hourly'
-                            : 'Simulated sensor data based on similar farm conditions · ±noise applied'}
-                    </p>
                 </div>
                 {isRealData && (
                     <span className="flex items-center space-x-1.5 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full text-xs font-bold text-green-700">
@@ -135,24 +149,24 @@ export const SensorDataSection: React.FC<Props> = ({ readings, isRealData }) => 
             </div>
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                 {METRICS.map(m => (
                     <button
                         key={m.key}
                         onClick={() => setActiveMetric(m.key)}
                         className={`rounded-2xl p-3 text-left transition-all border-2 ${activeMetric === m.key
-                                ? 'border-current shadow-lg scale-[1.02]'
-                                : 'border-transparent bg-white hover:shadow-md'
+                            ? 'border-current shadow-lg scale-[1.02]'
+                            : 'border-transparent bg-white hover:shadow-md'
                             }`}
                         style={activeMetric === m.key ? { borderColor: m.color, background: `${m.color}10` } : {}}
                     >
                         <div className="text-xs text-gray-500 mb-1 font-medium truncate">{m.label}</div>
                         <div className="text-xl font-bold" style={{ color: m.color }}>
-                            {(latest[m.key] as number).toFixed(1)}
+                            {(latest[m.dataKey] as number).toFixed(1)}
                             <span className="text-xs font-normal text-gray-400 ml-1">{m.unit}</span>
                         </div>
-                        <div className="mt-1">{statusBadge(latest[m.key] as number, m.idealMin, m.idealMax)}</div>
-                        <MiniSVGChart readings={readings} metric={m.key} color={m.color} />
+                        <div className="mt-1">{statusBadge(latest[m.dataKey] as number, m.idealMin, m.idealMax)}</div>
+                        <MiniSVGChart readings={readings} config={m} />
                     </button>
                 ))}
             </div>
@@ -216,6 +230,24 @@ export const SensorDataSection: React.FC<Props> = ({ readings, isRealData }) => 
                         );
                     })}
 
+                    {/* Baseline line */}
+                    {baselineValue !== undefined && (
+                        <g>
+                            <line
+                                x1={padX} y1={padY + (1 - (baselineValue - activeMin) / range) * (H - padY * 2)}
+                                x2={W - padX} y2={padY + (1 - (baselineValue - activeMin) / range) * (H - padY * 2)}
+                                stroke="#000000" strokeWidth="2" strokeDasharray="6,3"
+                            />
+                            <text
+                                x={W - padX + 4}
+                                y={padY + (1 - (baselineValue - activeMin) / range) * (H - padY * 2) + 3}
+                                fontSize="9" fill="#000000" fontWeight="bold"
+                            >
+                                {baselineValue}
+                            </text>
+                        </g>
+                    )}
+
                     {/* Area fill */}
                     <polygon
                         points={`${padX},${H - padY} ${points} ${W - padX},${H - padY}`}
@@ -257,11 +289,6 @@ export const SensorDataSection: React.FC<Props> = ({ readings, isRealData }) => 
                 </div>
             </div>
 
-            {!isRealData && (
-                <p className="mt-3 text-xs text-gray-400 text-center">
-                    * Sensor data is simulated based on CA (Carrot) farm readings with randomised variation to represent typical farm conditions for this product.
-                </p>
-            )}
         </div>
     );
 };

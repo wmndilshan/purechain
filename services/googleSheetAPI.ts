@@ -50,6 +50,10 @@ export interface APISensorReading {
     'Changing rate K': number | string;
     'Changing rate Soil Moisture': number | string;
     'Changing rate Gas': number | string;
+    'Baseline N': number | string;
+    'Baseline P': number | string;
+    'Baseline K': number | string;
+    'Baseline Gas': number | string;
 }
 
 // Raw shape of a row from the "Product Info" sheet
